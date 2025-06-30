@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPP Advanced Energy Analytics Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0f1c;
+            color: #e0e6ed;
+            overflow-x: hidden;
+        }
+
+        .dashboard {
+            padding: 20px;
+            max-width: 2000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 15s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 12px;
+            background: rgba(0,255,136,0.2);
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .market-status {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #00d4ff, #0099ff, #00d4ff);
+            background-size: 200% 100%;
+            animation: gradient 3s ease infinite;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .metric-card.alert {
+            background: linear-gradient(135deg, #ff4757 0%, #ff6348 100%);
+        }
+
+        .metric-card.warning {
+            background: linear-gradient(135deg, #ff9f43 0%, #ffb142 100%);
+        }
+
+        .metric-label {
+            font-size: 0.85em;
+            color: #8892b0;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+
+        .metric-change {
+            font-size: 0.85em;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .metric-change.positive {
+            color: #00ff88;
+        }
+
+        .metric-change.negative {
+            color: #ff4757;
+        }
+
+        .chart-container {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 25px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chart-title {
+            font-size: 1.4em;
+            font-weight: 600;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #0099ff 0%, #00d4ff 100%);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,153,255,0.3);
+        }
+
+        .btn.secondary {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+        }
+
+        canvas {
+            max-height: 400px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 25px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .predictions-section {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            margin-bottom: 25px;
+        }
+
+        .recommendation-card {
+            background: rgba(0,217,255,0.1);
+            border: 1px solid rgba(0,217,255,0.3);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .recommendation-card h3 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+
+        .recommendation-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .recommendation-item:last-child {
+            border-bottom: none;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #00d4ff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .forecast-card {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .forecast-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-3px);
+        }
+
+        .forecast-year {
+            font-size: 0.9em;
+            color: #8892b0;
+            margin-bottom: 5px;
+        }
+
+        .forecast-price {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .weather-section {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 25px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+        }
+
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .weather-card {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .weather-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+
+        .weather-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .weather-temp {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .weather-desc {
+            font-size: 0.85em;
+            color: #8892b0;
+            margin-top: 5px;
+        }
+
+        .congestion-map {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 25px;
+            border-radius: 20px;
+            position: relative;
+            height: 400px;
+            overflow: hidden;
+        }
+
+        .map-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .congestion-legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .alert-section {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 25px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #ff4757;
+        }
+
+        .alert-item.warning {
+            border-left-color: #ff9f43;
+        }
+
+        .alert-item.info {
+            border-left-color: #00d4ff;
+        }
+
+        .alert-icon {
+            font-size: 1.5em;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-time {
+            font-size: 0.85em;
+            color: #8892b0;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        th {
+            background: rgba(255,255,255,0.05);
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        tr:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .status-badge.online {
+            background: rgba(0,255,136,0.2);
+            color: #00ff88;
+        }
+
+        .status-badge.offline {
+            background: rgba(255,71,87,0.2);
+            color: #ff4757;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab:hover {
+            color: #00d4ff;
+        }
+
+        .tab.active {
+            color: #00d4ff;
+            border-bottom-color: #00d4ff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <div class="header-content">
+                <div>
+                    <h1>SPP Advanced Energy Analytics Dashboard</h1>
+                    <p>Southwest Power Pool Market Intelligence & Predictive Analytics</p>
+                </div>
+                <div class="header-stats">
+                    <div class="live-indicator">
+                        <div class="live-dot"></div>
+                        <span>Live Data</span>
+                    </div>
+                    <div class="market-status">Market: NORMAL</div>
+                    <div class="market-status">
+                        <span id="currentTime">12:45:32 CST</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Metrics Section -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Current RT Price</div>
+                <div class="metric-value" id="currentPrice">$42.85</div>
+                <div class="metric-change positive">
+                    <span>↑</span>
+                    <span>+5.2%</span>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Day-Ahead Avg</div>
+                <div class="metric-value" id="dayAheadAvg">$38.50</div>
+                <div class="metric-change negative">
+                    <span>↓</span>
+                    <span>-2.1%</span>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Peak Hour Price</div>
+                <div class="metric-value" id="peakPrice">$65.20</div>
+                <div class="metric-change positive">
+                    <span>↑</span>
+                    <span>+12.5%</span>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">System Load</div>
+                <div class="metric-value" id="systemLoad">45.2 GW</div>
+                <div class="metric-change positive">
+                    <span>↑</span>
+                    <span>+3.8%</span>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Wind Generation</div>
+                <div class="metric-value">12.8 GW</div>
+                <div class="metric-change positive">
+                    <span>↑</span>
+                    <span>+15.3%</span>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Solar Output</div>
+                <div class="metric-value">8.5 GW</div>
+                <div class="metric-change negative">
+                    <span>↓</span>
+                    <span>-5.2%</span>
+                </div>
+            </div>
+            <div class="metric-card warning">
+                <div class="metric-label">Congestion Cost</div>
+                <div class="metric-value">$2.4M</div>
+                <div class="metric-change negative">
+                    <span>↑</span>
+                    <span>+45%</span>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">ACE</div>
+                <div class="metric-value">-125 MW</div>
+                <div class="metric-change positive">
+                    <span>↓</span>
+                    <span>Improving</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Section -->
+        <div class="alert-section">
+            <h2 class="chart-title">System Alerts & Notifications</h2>
+            <div class="alert-item">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <strong>High Congestion Alert:</strong> West-East interface approaching limit (92% capacity)
+                    <div class="alert-time">10 minutes ago</div>
+                </div>
+            </div>
+            <div class="alert-item warning">
+                <div class="alert-icon">🌡️</div>
+                <div class="alert-content">
+                    <strong>Temperature Alert:</strong> Heat wave expected tomorrow - Load forecast increased by 8%
+                    <div class="alert-time">25 minutes ago</div>
+                </div>
+            </div>
+            <div class="alert-item info">
+                <div class="alert-icon">🔧</div>
+                <div class="alert-content">
+                    <strong>Maintenance Notice:</strong> Unit 5 at Station Alpha scheduled offline 14:00-18:00
+                    <div class="alert-time">1 hour ago</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weather Impact Section -->
+        <div class="weather-section">
+            <h2 class="chart-title">Weather Forecast & Load Impact</h2>
+            <div class="weather-grid">
+                <div class="weather-card">
+                    <div class="weather-icon">☀️</div>
+                    <div class="weather-temp">95°F</div>
+                    <div class="weather-desc">Today</div>
+                    <div class="weather-desc">+3.2 GW</div>
+                </div>
+                <div class="weather-card">
+                    <div class="weather-icon">⛅</div>
+                    <div class="weather-temp">89°F</div>
+                    <div class="weather-desc">Tomorrow</div>
+                    <div class="weather-desc">+2.1 GW</div>
+                </div>
+                <div class="weather-card">
+                    <div class="weather-icon">🌧️</div>
+                    <div class="weather-temp">78°F</div>
+                    <div class="weather-desc">Thu</div>
+                    <div class="weather-desc">-0.5 GW</div>
+                </div>
+                <div class="weather-card">
+                    <div class="weather-icon">⛈️</div>
+                    <div class="weather-temp">75°F</div>
+                    <div class="weather-desc">Fri</div>
+                    <div class="weather-desc">-1.2 GW</div>
+                </div>
+                <div class="weather-card">
+                    <div class="weather-icon">☀️</div>
+                    <div class="weather-temp">88°F</div>
+                    <div class="weather-desc">Sat</div>
+                    <div class="weather-desc">+1.8 GW</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Charts with Tabs -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2 class="chart-title">Market Analysis</h2>
+            </div>
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab(event, 'prices')">Price Analysis</div>
+                <div class="tab" onclick="switchTab(event, 'load')">Load & Generation</div>
+                <div class="tab" onclick="switchTab(event, 'ancillary')">Ancillary Services</div>
+                <div class="tab" onclick="switchTab(event, 'transmission')">Transmission</div>
+            </div>
+            
+            <div id="prices" class="tab-content active">
+                <canvas id="priceChart"></canvas>
+            </div>
+            <div id="load" class="tab-content">
+                <canvas id="loadGenChart"></canvas>
+            </div>
+            <div id="ancillary" class="tab-content">
+                <canvas id="ancillaryChart"></canvas>
+            </div>
+            <div id="transmission" class="tab-content">
+                <canvas id="transmissionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid-3">
+            <!-- Historical Analysis -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title">Price Distribution</h2>
+                </div>
+                <canvas id="priceDistChart"></canvas>
+            </div>
+
+            <div class="recommendation-card">
+                <h3>AI-Powered Strategic Recommendations</h3>
+                <div class="recommendation-item">
+                    <span>🔋</span>
+                    <div>
+                        <strong>Battery Storage Optimization:</strong> Deploy 200MW battery storage at WEST_HUB node. Expected ROI: 22% based on congestion patterns and price volatility. Optimal charge hours: 2-5 AM, discharge: 4-8 PM.
+                    </div>
+                </div>
+                <div class="recommendation-item">
+                    <span>📊</span>
+                    <div>
+                        <strong>Virtual Power Plant Opportunity:</strong> Aggregate 500MW of distributed resources in congested zones. Revenue potential: $18M annually through congestion relief and ancillary services.
+                    </div>
+                </div>
+                <div class="recommendation-item">
+                    <span>🌊</span>
+                    <div>
+                        <strong>Renewable Curtailment Arbitrage:</strong> Wind curtailment predicted at 2.5GW tonight. Purchase curtailed energy at -$5/MWh, store and sell during morning ramp at $65/MWh.
+                    </div>
+                </div>
+                <div class="recommendation-item">
+                    <span>⚡</span>
+                    <div>
+                        <strong>Transmission Rights Strategy:</strong> Acquire FTRs on Path 5 (North-South). Historical congestion rent: $8.50/MWh, predicted to increase 35% in summer months.
+                    </div>
+                </div>
+                <div class="recommendation-item">
+                    <span>🏭</span>
+                    <div>
+                        <strong>Industrial Load Response:</strong> Coordinate 800MW demand response portfolio. Trigger at $75/MWh threshold for 15% cost reduction vs baseline.
+                    </div>
+                </div>
+                <div class="recommendation-item">
+                    <span>🔄</span>
+                    <div>
+                        <strong>Ancillary Services Play:</strong> Regulation-up prices trending 40% above historical. Position fast-ramping resources for $3.2M monthly revenue opportunity.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Market Comparison Section -->
+        <div class="chart-container">
+            <h2 class="chart-title">Inter-Market Price Comparison</h2>
+            <canvas id="marketComparisonChart"></canvas>
+        </div>
+
+        <!-- Risk Analytics -->
+        <div class="grid-2">
+            <div class="chart-container">
+                <h2 class="chart-title">Price Volatility Analysis</h2>
+                <canvas id="volatilityChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2 class="chart-title">Risk Metrics Dashboard</h2>
+                <div class="metrics-grid" style="margin-top: 20px;">
+                    <div class="metric-card">
+                        <div class="metric-label">VaR (95%)</div>
+                        <div class="metric-value" style="font-size: 1.5em;">$125K</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">CVaR</div>
+                        <div class="metric-value" style="font-size: 1.5em;">$185K</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Sharpe Ratio</div>
+                        <div class="metric-value" style="font-size: 1.5em;">2.35</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Beta</div>
+                        <div class="metric-value" style="font-size: 1.5em;">0.87</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <!-- Fuel Mix -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title">Generation Fuel Mix</h2>
+                </div>
+                <canvas id="fuelMixChart"></canvas>
+            </div>
+
+            <!-- Reserve Margins -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2 class="chart-title">Reserve Margins</h2>
+                </div>
+                <canvas id="reserveChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Congestion Map -->
+        <div class="grid-2">
+            <div class="congestion-map">
+                <h2 class="chart-title">Transmission Congestion Map</h2>
+                <div class="map-placeholder">
+                    <canvas id="congestionChart"></canvas>
+                </div>
+                <div class="congestion-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00ff88;"></div>
+                        <span>Normal (0-50%)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffb142;"></div>
+                        <span>Moderate (50-80%)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff4757;"></div>
+                        <span>High (80-100%)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Node Prices Table -->
+            <div class="chart-container">
+                <h2 class="chart-title">Top Node Prices</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Node</th>
+                                <th>LMP ($/MWh)</th>
+                                <th>Energy</th>
+                                <th>Congestion</th>
+                                <th>Loss</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>WEST_HUB</td>
+                                <td style="color: #00d4ff;">$52.30</td>
+                                <td>$41.20</td>
+                                <td style="color: #ff4757;">$9.80</td>
+                                <td>$1.30</td>
+                                <td><span class="status-badge online">Online</span></td>
+                            </tr>
+                            <tr>
+                                <td>EAST_HUB</td>
+                                <td style="color: #00d4ff;">$45.80</td>
+                                <td>$41.20</td>
+                                <td style="color: #ffb142;">$3.50</td>
+                                <td>$1.10</td>
+                                <td><span class="status-badge online">Online</span></td>
+                            </tr>
+                            <tr>
+                                <td>NORTH_GEN</td>
+                                <td style="color: #00d4ff;">$38.90</td>
+                                <td>$41.20</td>
+                                <td style="color: #00ff88;">-$2.80</td>
+                                <td>$0.50</td>
+                                <td><span class="status-badge online">Online</span></td>
+                            </tr>
+                            <tr>
+                                <td>SOUTH_LOAD</td>
+                                <td style="color: #00d4ff;">$48.60</td>
+                                <td>$41.20</td>
+                                <td style="color: #ffb142;">$6.20</td>
+                                <td>$1.20</td>
+                                <td><span class="status-badge online">Online</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Predictions Section -->
+        <div class="predictions-section">
+            <h2 class="chart-title">Advanced Forecasting & AI Analytics</h2>
+            
+            <div class="grid-2">
+                <div>
+                    <h3 style="margin-bottom: 15px;">5-Year Price Forecast</h3>
+                    <canvas id="forecastChart"></canvas>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 15px;">Machine Learning Predictions</h3>
+                    <canvas id="mlPredictionChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="forecast-grid">
+                <div class="forecast-card">
+                    <div class="forecast-year">2025</div>
+                    <div class="forecast-price">$45.30/MWh</div>
+                    <div style="font-size: 0.8em; color: #8892b0;">CI: $42-48</div>
+                </div>
+                <div class="forecast-card">
+                    <div class="forecast-year">2026</div>
+                    <div class="forecast-price">$48.75/MWh</div>
+                    <div style="font-size: 0.8em; color: #8892b0;">CI: $44-53</div>
+                </div>
+                <div class="forecast-card">
+                    <div class="forecast-year">2027</div>
+                    <div class="forecast-price">$52.40/MWh</div>
+                    <div style="font-size: 0.8em; color: #8892b0;">CI: $47-58</div>
+                </div>
+                <div class="forecast-card">
+                    <div class="forecast-year">2028</div>
+                    <div class="forecast-price">$55.85/MWh</div>
+                    <div style="font-size: 0.8em; color: #8892b0;">CI: $49-62</div>
+                </div>
+                <div class="forecast-card">
+                    <div class="forecast-year">2029</div>
+                    <div class="forecast-price">$58.20/MWh</div>
+                    <div style="font-size: 0.8em; color: #8892b0;">CI: $51-65</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global chart instances
+        let charts = {};
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboard();
+            updateTime();
+            setInterval(updateTime, 1000);
+            setInterval(updateMetrics, 30000); // Update metrics every 30 seconds
+        });
+
+        function initializeDashboard() {
+            createPriceChart();
+            createLoadGenChart();
+            createAncillaryChart();
+            createTransmissionChart();
+            createPriceDistChart();
+            createMarketComparisonChart();
+            createVolatilityChart();
+            createFuelMixChart();
+            createReserveChart();
+            createCongestionChart();
+            createForecastChart();
+            createMLPredictionChart();
+        }
+
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', {
+                timeZone: 'America/Chicago',
+                hour12: false
+            }) + ' CST';
+            document.getElementById('currentTime').textContent = timeString;
+        }
+
+        function updateMetrics() {
+            // Simulate real-time data updates
+            const currentPrice = 42.85 + (Math.random() - 0.5) * 10;
+            const dayAheadAvg = 38.50 + (Math.random() - 0.5) * 5;
+            const peakPrice = 65.20 + (Math.random() - 0.5) * 15;
+            const systemLoad = 45.2 + (Math.random() - 0.5) * 8;
+
+            document.getElementById('currentPrice').textContent = '$' + currentPrice.toFixed(2);
+            document.getElementById('dayAheadAvg').textContent = '$' + dayAheadAvg.toFixed(2);
+            document.getElementById('peakPrice').textContent = '$' + peakPrice.toFixed(2);
+            document.getElementById('systemLoad').textContent = systemLoad.toFixed(1) + ' GW';
+        }
+
+        function switchTab(evt, tabName) {
+            // Hide all tab contents
+            const tabContents = document.getElementsByClassName('tab-content');
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+
+            // Remove active class from all tabs
+            const tabs = document.getElementsByClassName('tab');
+            for (let i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+
+            // Show the selected tab content and mark tab as active
+            document.getElementById(tabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
+
+        function generateTimeLabels(hours = 24) {
+            const labels = [];
+            const now = new Date();
+            for (let i = hours; i >= 0; i--) {
+                const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+                labels.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+            }
+            return labels;
+        }
+
+        function generateRandomData(length, min, max) {
+            return Array.from({ length }, () => Math.random() * (max - min) + min);
+        }
+
+        function createPriceChart() {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            const labels = generateTimeLabels(24);
+            
+            charts.priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Real-Time Price',
+                        data: generateRandomData(25, 25, 75),
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Day-Ahead Price',
+                        data: generateRandomData(25, 30, 65),
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        fill: false,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createLoadGenChart() {
+            const ctx = document.getElementById('loadGenChart').getContext('2d');
+            const labels = generateTimeLabels(24);
+            
+            charts.loadGenChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'System Load',
+                        data: generateRandomData(25, 35000, 55000),
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Wind Generation',
+                        data: generateRandomData(25, 8000, 18000),
+                        borderColor: '#4ecdc4',
+                        backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Solar Generation',
+                        data: generateRandomData(25, 2000, 12000),
+                        borderColor: '#ffe66d',
+                        backgroundColor: 'rgba(255, 230, 109, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { 
+                                color: '#8892b0',
+                                callback: function(value) {
+                                    return (value / 1000).toFixed(0) + 'k MW';
+                                }
+                            },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createAncillaryChart() {
+            const ctx = document.getElementById('ancillaryChart').getContext('2d');
+            const labels = generateTimeLabels(24);
+            
+            charts.ancillaryChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Regulation Up',
+                        data: generateRandomData(25, 10, 50),
+                        backgroundColor: 'rgba(0, 212, 255, 0.7)',
+                        borderColor: '#00d4ff',
+                        borderWidth: 1
+                    }, {
+                        label: 'Regulation Down',
+                        data: generateRandomData(25, 5, 30),
+                        backgroundColor: 'rgba(0, 255, 136, 0.7)',
+                        borderColor: '#00ff88',
+                        borderWidth: 1
+                    }, {
+                        label: 'Spinning Reserve',
+                        data: generateRandomData(25, 15, 40),
+                        backgroundColor: 'rgba(255, 177, 66, 0.7)',
+                        borderColor: '#ffb142',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTransmissionChart() {
+            const ctx = document.getElementById('transmissionChart').getContext('2d');
+            const labels = ['North-South', 'East-West', 'Central-North', 'South-East', 'West-Central'];
+            
+            charts.transmissionChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Current Flow (%)',
+                        data: [85, 92, 67, 78, 55],
+                        borderColor: '#ff4757',
+                        backgroundColor: 'rgba(255, 71, 87, 0.2)',
+                        pointBackgroundColor: '#ff4757',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#ff4757'
+                    }, {
+                        label: 'Capacity Limit (%)',
+                        data: [100, 100, 100, 100, 100],
+                        borderColor: '#8892b0',
+                        backgroundColor: 'rgba(136, 146, 176, 0.1)',
+                        pointBackgroundColor: '#8892b0',
+                        pointBorderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255,255,255,0.1)' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            pointLabels: { color: '#8892b0' },
+                            ticks: { 
+                                color: '#8892b0',
+                                backdropColor: 'transparent'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createPriceDistChart() {
+            const ctx = document.getElementById('priceDistChart').getContext('2d');
+            const labels = ['$0-20', '$20-40', '$40-60', '$60-80', '$80-100', '$100+'];
+            
+            charts.priceDistChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: [5, 25, 35, 20, 10, 5],
+                        backgroundColor: [
+                            '#00ff88',
+                            '#00d4ff',
+                            '#4ecdc4',
+                            '#ffb142',
+                            '#ff6b6b',
+                            '#ff4757'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#1a2332'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e0e6ed' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createMarketComparisonChart() {
+            const ctx = document.getElementById('marketComparisonChart').getContext('2d');
+            const labels = generateTimeLabels(12);
+            
+            charts.marketComparisonChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'SPP',
+                        data: generateRandomData(13, 35, 65),
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'ERCOT',
+                        data: generateRandomData(13, 30, 70),
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'MISO',
+                        data: generateRandomData(13, 25, 55),
+                        borderColor: '#4ecdc4',
+                        backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createVolatilityChart() {
+            const ctx = document.getElementById('volatilityChart').getContext('2d');
+            const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            charts.volatilityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Price Volatility (%)',
+                        data: [15, 18, 22, 25, 30, 35, 40, 38, 28, 20, 16, 14],
+                        backgroundColor: 'rgba(255, 71, 87, 0.7)',
+                        borderColor: '#ff4757',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createFuelMixChart() {
+            const ctx = document.getElementById('fuelMixChart').getContext('2d');
+            const labels = ['Natural Gas', 'Wind', 'Coal', 'Nuclear', 'Solar', 'Hydro', 'Other'];
+            
+            charts.fuelMixChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: [35, 28, 15, 12, 6, 3, 1],
+                        backgroundColor: [
+                            '#ff6b6b',
+                            '#4ecdc4',
+                            '#8892b0',
+                            '#00d4ff',
+                            '#ffe66d',
+                            '#00ff88',
+                            '#ffb142'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#1a2332'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e0e6ed' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createReserveChart() {
+            const ctx = document.getElementById('reserveChart').getContext('2d');
+            const labels = generateTimeLabels(24);
+            
+            charts.reserveChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Operating Reserve',
+                        data: generateRandomData(25, 2000, 5000),
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Required Reserve',
+                        data: Array(25).fill(3000),
+                        borderColor: '#ff4757',
+                        backgroundColor: 'rgba(255, 71, 87, 0.1)',
+                        borderDash: [5, 5],
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { 
+                                color: '#8892b0',
+                                callback: function(value) {
+                                    return (value / 1000).toFixed(1) + 'k MW';
+                                }
+                            },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createCongestionChart() {
+            const ctx = document.getElementById('congestionChart').getContext('2d');
+            const labels = ['Interface A', 'Interface B', 'Interface C', 'Interface D', 'Interface E'];
+            
+            charts.congestionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Congestion Level (%)',
+                        data: [92, 78, 65, 45, 88],
+                        backgroundColor: function(context) {
+                            const value = context.parsed.y;
+                            if (value >= 80) return 'rgba(255, 71, 87, 0.8)';
+                            if (value >= 50) return 'rgba(255, 177, 66, 0.8)';
+                            return 'rgba(0, 255, 136, 0.8)';
+                        },
+                        borderColor: function(context) {
+                            const value = context.parsed.y;
+                            if (value >= 80) return '#ff4757';
+                            if (value >= 50) return '#ffb142';
+                            return '#00ff88';
+                        },
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function createForecastChart() {
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+            const labels = ['2025', '2026', '2027', '2028', '2029'];
+            
+            charts.forecastChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Forecast Price',
+                        data: [45.30, 48.75, 52.40, 55.85, 58.20],
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Upper Bound',
+                        data: [48, 53, 58, 62, 65],
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        borderDash: [5, 5],
+                        fill: false
+                    }, {
+                        label: 'Lower Bound',
+                        data: [42, 44, 47, 49, 51],
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        borderDash: [5, 5],
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createMLPredictionChart() {
+            const ctx = document.getElementById('mlPredictionChart').getContext('2d');
+            const labels = generateTimeLabels(48);
+            
+            charts.mlPredictionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'ML Prediction',
+                        data: generateRandomData(49, 35, 75),
+                        borderColor: '#4ecdc4',
+                        backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Confidence Interval',
+                        data: generateRandomData(49, 30, 80),
+                        borderColor: '#8892b0',
+                        backgroundColor: 'rgba(136, 146, 176, 0.1)',
+                        borderDash: [3, 3],
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e0e6ed' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        },
+                        y: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+
